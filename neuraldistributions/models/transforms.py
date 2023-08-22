@@ -57,16 +57,60 @@ class SQRT(nn.Module):
         return -np.log(2) - 0.5 * torch.log(y + self.eps)
 
 
+class tanh_or_shift(nn.Module):
+    def __init__(self, n_dimensions=1, eps=1e-12):
+        super().__init__()
+        self.eps = eps
+
+    def inv(self, x):
+        return torch.where(x < 0, torch.tanh(-x).float(),
+                           x + np.exp(-10).float().to("cuda"))
+
+    # TODO: check for uniform in logliklihood
+    def forward(self, y):
+        return torch.where(y < np.e ** -10, torch.atanh(-torch.rand(1).to("cuda")), y - np.e ** -10)
+
+    def log_abs_det_jacobian(self, y):
+        # print(y)
+        log = torch.log(torch.abs(torch.where(y < 0, (1 / (y ** 2 - 1)).float(),
+                                              torch.tensor([1]).float().to("cuda")) + self.eps))
+        # print(log.sum(dim=1))
+        return log
+
+
+class LowRankAffine(nn.Module):
+    def __init__(self, n_dimensions=1, rank=1):
+        super().__init__()
+        self.u = nn.Parameter(
+            torch.zeros(n_dimensions, rank, requires_grad=True)
+        )
+        self.v = nn.Parameter(
+            torch.zeros(rank, n_dimensions, requires_grad=True)
+        )
+        self.Identity = nn.Parameter(torch.eye(n_dimensions), requires_grad=False)
+        self.rank = rank
+
+    def inv(self, x):
+        return ((self.Identity - self.u @ torch.inverse(
+            torch.eye(self.rank).to(x.device) + self.v @ self.u) @ self.v).T @ x.T).T
+
+    def forward(self, y):
+        return ((self.u @ self.v + self.Identity) @ y.T).T
+
+    def log_abs_det_jacobian(self, y):
+        return torch.log(torch.det(torch.abs(torch.eye(self.rank).to(y.device) + self.v @ self.u))).reshape(1,-1)
+
+
 class Affine(nn.Module):
     def __init__(
-        self,
-        n_dimensions=1,
-        only_positive_shift=False,
-        learn_t=True,
-        learn_a=True,
-        init_t=0.0,
-        init_a=1.0,
-        eps=1e-12,
+            self,
+            n_dimensions=1,
+            only_positive_shift=False,
+            learn_t=True,
+            learn_a=True,
+            init_t=0.0,
+            init_a=1.0,
+            eps=1e-12,
     ):
         """
         Affine transformation layer with positively-constrained scale.
@@ -101,6 +145,9 @@ class Affine(nn.Module):
     def log_abs_det_jacobian(self, y):
         return torch.log(torch.abs(self.a) + self.eps)
 
+    def extra_repr(self):
+        return 'init_t={}, init_a={}'.format(self.t, self.a)
+
 
 class Log(nn.Module):
     def __init__(self, n_dimensions=1, eps=1e-12):
@@ -115,6 +162,23 @@ class Log(nn.Module):
 
     def log_abs_det_jacobian(self, y):
         return -torch.log(y + self.eps)
+
+
+class LeakyReLU(nn.Module):
+    def __init__(self, n_dimensions=1, negative_slope=0.01, eps=1e-12):
+        super().__init__()
+        self.eps = eps
+        self.negative_slope = torch.tensor([negative_slope]).float().to("cuda")
+        print(self.negative_slope)
+
+    def inv(self, x):
+        return torch.where(x >= 0, x, x / self.negative_slope)
+
+    def forward(self, y):
+        return torch.nn.functional.leaky_relu(y, self.negative_slope.item())
+
+    def log_abs_det_jacobian(self, y):
+        return torch.where(y >= 0, torch.tensor([0]).float().to(y.device), torch.log(self.negative_slope))
 
 
 class Exp(nn.Module):
@@ -142,7 +206,6 @@ class ELU(nn.Module):
         self.eps = eps
 
     def inv_elu(self, x):
-
         return torch.clamp_min(x, 0) + torch.clamp_max(
             torch.log(x / self.alpha + 1.0 + self.eps), 0
         )
@@ -185,7 +248,7 @@ class InvELU(nn.Module):
     def log_abs_det_jacobian(self, y):
         det_jacobian = 1 / (y - self.offset + self.alpha + self.eps)
         return (
-            torch.log(torch.abs(det_jacobian) + self.eps) * (y <= self.offset).detach()
+                torch.log(torch.abs(det_jacobian) + self.eps) * (y <= self.offset).detach()
         )
 
 
@@ -279,10 +342,12 @@ class Flow(nn.Module):
         for li, l in enumerate(self.layers):
 
             x = l(y)
+            if torch.isnan(x).float().sum().item() > 0:
+                print(li, "error")
 
             # logdet is expected to be dx/dy
             logdet = logdet + l.log_abs_det_jacobian(y)
-
+            
             # This avoids making gradients nan
             if mask is not None:  # TODO: replace this with a backward hook
                 x = torch.where(~mask, torch.zeros_like(x), x)
