@@ -59,6 +59,17 @@ def get_learned_transforms(name, n_dimensions=1):
             ELU(n_dimensions=n_dimensions),
             Affine(n_dimensions=n_dimensions,),
         ]
+    
+    elif name == "learned-leaky-no-bias":
+        return [
+            Affine(n_dimensions=n_dimensions,learn_t=False),
+            ELU(n_dimensions=n_dimensions),
+            Affine(n_dimensions=n_dimensions,learn_t=False),
+            ELU(n_dimensions=n_dimensions),
+            Affine(n_dimensions=n_dimensions,learn_t=False),
+            ELU(n_dimensions=n_dimensions),
+            Affine(n_dimensions=n_dimensions,learn_t=False),
+        ]
 
     elif name == "learned-leaky-low-rank-single":
         return [
@@ -67,15 +78,29 @@ def get_learned_transforms(name, n_dimensions=1):
             Identity(n_dimensions=n_dimensions),
         ]
 
-    elif name == "learned-leaky-low-rank":
+
+    elif name.startswith("learned-leaky-low-rank-k-"):
+        rank = int(name.split("learned-leaky-low-rank-k-")[1])
         return [
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
             ELU(n_dimensions=n_dimensions),
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
             ELU(n_dimensions=n_dimensions),
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
             ELU(n_dimensions=n_dimensions),
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
+        ]
+
+    elif name.startswith("learned-leaky-mixed-k-"):
+        rank = int(name.split("learned-leaky-mixed-k-")[1])
+        return [
+            Affine(n_dimensions=n_dimensions,),
+            ELU(n_dimensions=n_dimensions),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
+            ELU(n_dimensions=n_dimensions),
+            Affine(n_dimensions=n_dimensions, ),
+            ELU(n_dimensions=n_dimensions),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
         ]
 
     elif name == "learned2":

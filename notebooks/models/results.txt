@@ -1,0 +1,5 @@
+Model                   Train    Val     Test
+FlowFa                  2.011   1.956    1.957
+FlowFa-Ident            2.052   1.995    1.997
+FlowFa-Ident-LowRank    2.528   2.475    2.475
+FlowFa-LowRank          2.439   2.440    2.444

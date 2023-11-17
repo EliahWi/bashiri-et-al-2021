@@ -67,19 +67,22 @@ def get_learned_transforms(name, n_dimensions=1):
     elif name == "learned-leaky-low-rank-single":
         return [
             Identity(n_dimensions=n_dimensions),
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            LowRankAffine(n_dimensions=n_dimensions, rank=n_dimensions),
             Identity(n_dimensions=n_dimensions),
         ]
 
-    elif name == "learned-leaky-low-rank":
+    elif name.startswith("learned-leaky-low-rank-k-"):
+        rank = int(name.split("learned-leaky-low-rank-k-")[1])
         return [
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            Identity(n_dimensions=n_dimensions),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
             ELU(n_dimensions=n_dimensions),
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
             ELU(n_dimensions=n_dimensions),
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
             ELU(n_dimensions=n_dimensions),
-            LowRankAffine(n_dimensions=n_dimensions, rank=10),
+            LowRankAffine(n_dimensions=n_dimensions, rank=rank),
+            Identity(n_dimensions=n_dimensions)
         ]
 
     elif name == "learned2":
@@ -233,7 +236,7 @@ class FlowFA_Ident(nn.Module):
 
     @property
     def sigma(self):
-        return NotImplementedError()
+        return torch.eye(1000)
 
     def forward(self, *args, data_key=None, return_all=False):
 
@@ -268,9 +271,7 @@ class FlowFA_Ident(nn.Module):
         return self.encoding_model.regularizer(data_key)
 
     def apply_changes_while_training(self):
-        if self.d_latent is not None:
-            self._C.requires_grad_(True)
-        self.logpsi_diag.requires_grad_(True)
+        return
 
     def evaluate(self):
         raise NotImplementedError()

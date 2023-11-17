@@ -82,23 +82,27 @@ class LowRankAffine(nn.Module):
     def __init__(self, n_dimensions=1, rank=1):
         super().__init__()
         self.u = nn.Parameter(
-            torch.zeros(n_dimensions, rank, requires_grad=True)
+            torch.zeros(n_dimensions, rank), requires_grad=True
         )
         self.v = nn.Parameter(
-            torch.zeros(rank, n_dimensions, requires_grad=True)
+            torch.zeros(rank, n_dimensions), requires_grad=True
+        )
+        self.bias = nn.Parameter(
+            torch.zeros(n_dimensions), requires_grad=True
         )
         self.Identity = nn.Parameter(torch.eye(n_dimensions), requires_grad=False)
         self.rank = rank
 
     def inv(self, x):
         return ((self.Identity - self.u @ torch.inverse(
-            torch.eye(self.rank).to(x.device) + self.v @ self.u) @ self.v).T @ x.T).T
+            torch.eye(self.rank).to(x.device) + self.v @ self.u) @ self.v).T @ (x - self.bias).T).T
 
     def forward(self, y):
-        return ((self.u @ self.v + self.Identity) @ y.T).T
+        value = (self.u @ self.v + self.Identity) @ torch.movedim(y, len(y.shape)-1, len(y.shape)-2)
+        return torch.movedim(value, len(value.shape)-1, len(value.shape)-2) + self.bias
 
     def log_abs_det_jacobian(self, y):
-        return torch.log(torch.det(torch.abs(torch.eye(self.rank).to(y.device) + self.v @ self.u))).reshape(1,-1)
+        return torch.log(torch.det(torch.abs(torch.eye(self.rank).to(y.device) + self.v @ self.u))).reshape(1,-1)/y.shape[1]
 
 
 class Affine(nn.Module):

@@ -8,6 +8,7 @@ services:
     image: neuraldistributions
     volumes:
         - .:/project
+        - /var/sinz-shared/:/data/
     # env_file:
     #     - .env
     environment:
@@ -17,19 +18,21 @@ services:
         - jupyter
         - lab
         - --allow-root
+    ports:
+        - 4323:8888
 
-  simulator:
-    build:
-      context: .
-      dockerfile: $PWD/Dockerfile
-    image: neuraldistributions
-    volumes:
-      - .:/project
+#  simulator:
+#    build:
+#      context: .
+#      dockerfile: $PWD/Dockerfile
+#    image: neuraldistributions
+##    volumes:
+#      - .:/project
     # env_file:
     #   - .env
-    ports:
-      - "10139:8501" 
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=0
-    runtime: nvidia
-    entrypoint: ["streamlit", "run", "uis/simulator.py", "&"]
+#    ports:
+#      - "10139:8501" 
+#    environment:
+#      - NVIDIA_VISIBLE_DEVICES=0
+#    runtime: nvidia
+#    entrypoint: ["streamlit", "run", "uis/simulator.py", "&"]

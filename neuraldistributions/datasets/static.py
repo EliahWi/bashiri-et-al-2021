@@ -144,6 +144,7 @@ def get_real_data(
     shuffle_train=True,
     return_key=False,
     return_more=False,
+    return_real_responses=False,
     device="cuda",
 ):
 
@@ -161,11 +162,18 @@ def get_real_data(
         neurons_n = None
 
     # Create the dataset objects
-    dat = (
-        FileTreeDataset(path, "images", "responses", "behavior", "pupil_center")
-        if file_tree
-        else StaticImageSet(path, "images", "responses")
-    )
+    if return_real_responses:
+        dat = (
+            FileTreeDataset(path, "images", "responses", "behavior", "pupil_center", "real_responses")
+            if file_tree
+            else StaticImageSet(path, "images", "responses")
+        )
+    else:
+        dat = (
+            FileTreeDataset(path, "images", "responses", "behavior", "pupil_center")
+            if file_tree
+            else StaticImageSet(path, "images", "responses")
+        )
 
     #### Get the required data (images, responses, etc.) #########################################################
 
@@ -184,6 +192,10 @@ def get_real_data(
     pupil_center = (
         np.vstack([d[3] for d in tqdm(dat)]) if file_tree else dat.pupil_center.copy()
     )
+    if return_real_responses:
+        real_responses = (
+            np.vstack([d[4] for d in tqdm(dat)]) if file_tree else dat.real_responses.copy()
+        )
     tiers = dat.trial_info.tiers.copy() if file_tree else dat.tiers.copy()
     trial_timestamp = get_trial_timestamp_in_seconds(
         dat.trial_info.frame_trial_ts if file_tree else dat.info.frame_trial_ts
@@ -197,8 +209,9 @@ def get_real_data(
         else dat.info.frame_image_id.copy()
     )
 
+    # TODO: made negative responses possible
     # make negative responses 0
-    responses[responses < 0.0] = 0.0
+    #responses[responses < 0.0] = 0.0
 
     # is area is not specified take all of them
     area = area if area is not None else np.unique(dat.neurons.area)
@@ -267,6 +280,8 @@ def get_real_data(
 
     if normalize_neurons:
         responses = std_normalize_based_on(responses, responses[train_idx])
+        if return_real_responses:
+            real_responses = std_normalize_based_on(real_responses, real_responses[train_idx])
 
     # normalize trial timestamp
     trial_timestamp = (
@@ -358,6 +373,13 @@ def get_real_data(
         val_arrays.append(trial_timestamp[val_idx])
         test_arrays.append(trial_timestamp[test_idx])
         names.append("trial_timestamp")
+
+    if return_real_responses:
+        real_responses = real_responses[:, neurons_idx]
+        train_arrays.append(real_responses[train_idx])
+        val_arrays.append(real_responses[val_idx])
+        test_arrays.append(real_responses[test_idx])
+        names.append("real_responses")
 
     #### Create the dataloaders #########################################################################################
 
@@ -476,6 +498,7 @@ def mouse_static_loaders(
     return_previous_response=False,
     include_pixelcoord=False,
     shuffle_train=True,
+    return_real_responses=False,
     device="cuda",
 ):
 
@@ -508,6 +531,7 @@ def mouse_static_loaders(
             include_previous_image=include_previous_image,
             include_pixelcoord=include_pixelcoord,
             shuffle_train=shuffle_train,
+            return_real_responses=return_real_responses,
         )
         loaders[data_key] = loader
 

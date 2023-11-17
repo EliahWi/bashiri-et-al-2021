@@ -80,7 +80,7 @@ class Trainer:
                 threshold_mode="abs",
             )
             self.early_stopping = (
-                EarlyStopping(mode="max", patience=20, verbose=True)
+                EarlyStopping(mode="max", patience=50, verbose=True)
                 if early_stopping
                 else None
             )
@@ -95,7 +95,7 @@ class Trainer:
                 threshold_mode="abs",
             )
             self.early_stopping = (
-                EarlyStopping(mode="min", patience=20, verbose=True)
+                EarlyStopping(mode="min", patience=50, verbose=True)
                 if early_stopping
                 else None
             )
